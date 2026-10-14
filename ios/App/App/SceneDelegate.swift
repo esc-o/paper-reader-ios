@@ -4,7 +4,8 @@ import WebKit
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
-    private var pendingPdf: (name: String, base64: String)?
+    private var pendingFile: (name: String, base64: String)?
+    private let readableExtensions: Set<String> = ["pdf", "txt", "mobi", "azw", "prc"]
     private var deliverTimer: Timer?
     private var delivering = false
 
@@ -16,14 +17,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.rootViewController = CAPBridgeViewController()
         window?.makeKeyAndVisible()
 
-        capturePdfs(connectionOptions.urlContexts)
+        captureFiles(connectionOptions.urlContexts)
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
-        capturePdfs(URLContexts)
+        captureFiles(URLContexts)
         let forwarded = URLContexts.filter { context in
-            !(context.url.isFileURL && context.url.pathExtension.lowercased() == "pdf")
+            !(context.url.isFileURL && self.readableExtensions.contains(context.url.pathExtension.lowercased()))
         }
         if !forwarded.isEmpty {
             SceneDelegateProxy.shared.scene(scene, openURLContexts: Set(forwarded))
@@ -38,17 +39,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         SceneDelegateProxy.shared.scene(scene, continue: userActivity)
     }
 
-    private func capturePdfs(_ contexts: Set<UIOpenURLContext>) {
+    private func captureFiles(_ contexts: Set<UIOpenURLContext>) {
         for context in contexts {
             let url = context.url
-            guard url.isFileURL, url.pathExtension.lowercased() == "pdf" else { continue }
-            guard let payload = readPdf(url) else { continue }
-            pendingPdf = payload
+            guard url.isFileURL, readableExtensions.contains(url.pathExtension.lowercased()) else { continue }
+            guard let payload = readFile(url) else { continue }
+            pendingFile = payload
             scheduleDeliver()
         }
     }
 
-    private func readPdf(_ url: URL) -> (name: String, base64: String)? {
+    private func readFile(_ url: URL) -> (name: String, base64: String)? {
         let accessing = url.startAccessingSecurityScopedResource()
         defer {
             if accessing { url.stopAccessingSecurityScopedResource() }
@@ -58,7 +59,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func scheduleDeliver() {
-        guard pendingPdf != nil else { return }
+        guard pendingFile != nil else { return }
         deliverTimer?.invalidate()
         var attempts = 0
         deliverTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] timer in
@@ -67,17 +68,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 return
             }
             attempts += 1
-            if attempts > 40 || self.pendingPdf == nil {
+            if attempts > 40 || self.pendingFile == nil {
                 timer.invalidate()
                 return
             }
             if self.delivering { return }
             self.delivering = true
-            let snapshot = self.pendingPdf?.base64
+            let snapshot = self.pendingFile?.base64
             self.tryDeliver { ok in
                 self.delivering = false
-                if ok && self.pendingPdf?.base64 == snapshot {
-                    self.pendingPdf = nil
+                if ok && self.pendingFile?.base64 == snapshot {
+                    self.pendingFile = nil
                     timer.invalidate()
                 }
             }
@@ -85,7 +86,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func tryDeliver(completion: @escaping (Bool) -> Void) {
-        guard let pendingPdf, let webView = (window?.rootViewController as? CAPBridgeViewController)?.webView else {
+        guard let pendingFile, let webView = (window?.rootViewController as? CAPBridgeViewController)?.webView else {
             completion(false)
             return
         }
@@ -95,7 +96,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     completion(false)
                     return
                 }
-                self.send(name: pendingPdf.name, base64: pendingPdf.base64, to: webView, completion: completion)
+                self.send(name: pendingFile.name, base64: pendingFile.base64, to: webView, completion: completion)
             }
         }
     }

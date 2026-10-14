@@ -23,6 +23,31 @@ export function LookupPanel({ text, onClose }: { text: string; onClose: () => vo
   const { t } = useTranslation()
 
   useEffect(() => {
+    const y = window.scrollY
+    const body = document.body
+    const previous = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+    }
+    body.style.position = 'fixed'
+    body.style.top = `-${y}px`
+    body.style.left = '0'
+    body.style.right = '0'
+    body.style.width = '100%'
+    return () => {
+      body.style.position = previous.position
+      body.style.top = previous.top
+      body.style.left = previous.left
+      body.style.right = previous.right
+      body.style.width = previous.width
+      window.scrollTo(0, y)
+    }
+  }, [])
+
+  useEffect(() => {
     const controller = new AbortController()
     lookup(text, controller.signal)
       .then((result) => setState({ kind: 'done', result }))
