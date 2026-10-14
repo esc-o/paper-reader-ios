@@ -12,7 +12,7 @@ const zh = {
     shelf: '书架',
     notes: '笔记',
     me: '我',
-    backHome: '返回首页',
+    backHome: '← 首页',
     backShelf: '回到书架',
   },
   appearance: {

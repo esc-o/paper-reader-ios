@@ -100,27 +100,11 @@ function caretAt(x: number, y: number): { node: Node; offset: number } | null {
     caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
     caretRangeFromPoint?: (x: number, y: number) => Range | null
   }
-  const range = doc.caretRangeFromPoint?.(x, y)
-  const fromRange = range ? textCaret(range.startContainer, range.startOffset) : null
-  if (fromRange) return fromRange
   const position = doc.caretPositionFromPoint?.(x, y)
-  if (!position) return null
-  return textCaret(position.offsetNode, position.offset)
-}
-
-/** iOS often returns the element and a child index, not the text node under the finger. */
-function textCaret(node: Node, offset: number): { node: Node; offset: number } | null {
-  if (node.nodeType === Node.TEXT_NODE) return { node, offset }
-  if (!(node instanceof Element)) return null
-  const child = node.childNodes[offset] ?? node.childNodes[Math.max(0, offset - 1)]
-  if (child?.nodeType === Node.TEXT_NODE) {
-    const length = child.textContent?.length ?? 0
-    return { node: child, offset: node.childNodes[offset] === child ? 0 : length }
-  }
-  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT)
-  const first = walker.nextNode()
-  if (!first) return null
-  return { node: first, offset: Math.min(offset, first.textContent?.length ?? 0) }
+  if (position) return { node: position.offsetNode, offset: position.offset }
+  const range = doc.caretRangeFromPoint?.(x, y)
+  if (!range) return null
+  return { node: range.startContainer, offset: range.startOffset }
 }
 
 function offsetWithin(element: HTMLElement, node: Node, offset: number): number {
