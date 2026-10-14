@@ -4,12 +4,14 @@ export type Route =
   | { name: 'home' }
   | { name: 'shelf' }
   | { name: 'notes' }
+  | { name: 'me' }
   | { name: 'reader'; bookId: string; noteId?: string }
 
 export const routes = {
   home: '#/',
   shelf: '#/shelf',
   notes: '#/notes',
+  me: '#/me',
   reader: (bookId: string, noteId?: string) => {
     const path = `#/read/${encodeURIComponent(bookId)}`
     return noteId ? `${path}?note=${encodeURIComponent(noteId)}` : path
@@ -28,6 +30,7 @@ function parse(hash: string): Route {
   }
   if (path === '/shelf') return { name: 'shelf' }
   if (path === '/notes') return { name: 'notes' }
+  if (path === '/me') return { name: 'me' }
   return { name: 'home' }
 }
 
