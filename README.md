@@ -6,17 +6,16 @@ iOS 版的 [Paper Reader](https://github.com/esc-o/paper-reader)。界面和交�
 
 ## 打出 IPA
 
-需要一台 Mac、Xcode 16 或更新版本，以及用来签名的 Apple Developer 团队。当前这台构建环境是 Linux，没有 Xcode，所以 IPA 要在 Mac 上归档。工程里已经放进打包好的手机页面。如果克隆之后图标、字体或 `ios/App/App/public/assets` 里的页面包还是空的，先在仓库根目录执行一次：
+需要一台 Mac、Xcode 16 或更新版本、Node.js，以及用来签名的 Apple Developer 团队。当前这台构建环境是 Linux，没有 Xcode，所以 IPA 要在 Mac 上归档。
 
 ```bash
-python3 scripts/materialize_assets.py
-```
-
-然后打开 Xcode：
-
-```bash
+git clone https://github.com/esc-o/paper-reader-ios.git
+cd paper-reader-ios
+bash scripts/prepare-ios.sh
 open ios/App/App.xcodeproj
 ```
+
+`prepare-ios.sh` 会从原来的 paper-reader 仓库下载字体和图标，再把手机页面同步进 Xcode 工程。
 
 改了网页之后，再同步进 Xcode：
 
