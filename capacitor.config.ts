@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'app.paperreader.ios',
+  appId: 'com.escoe.paperreader',
   appName: 'Paper Reader',
   webDir: 'dist',
   backgroundColor: '#f7f4ee',
