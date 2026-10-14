@@ -161,15 +161,7 @@ export function ReaderMenu({
   const items = tocItems(book)
   const current = items.reduce((found, item) => (item.pdfPage <= page ? item : found), undefined as TocItem | undefined)
   const usingHeadings = (book.toc ?? []).length === 0
-  const menuBody = useRef<HTMLDivElement>(null)
-
-  function jumpToToc() {
-    const section = document.getElementById('menu-toc')
-    const body = menuBody.current
-    if (!section || !body) return
-    const top = section.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop
-    body.scrollTo({ top: Math.max(0, top - 8), behavior: 'smooth' })
-  }
+  const [tocOpen, setTocOpen] = useState(false)
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -189,7 +181,12 @@ export function ReaderMenu({
             <button type="button" className="menu-export" onClick={onExport}>
               {t('menu.export')}
             </button>
-            <button type="button" className="menu-export" onClick={jumpToToc}>
+            <button
+              type="button"
+              className={`menu-export toc${tocOpen ? ' on' : ''}`}
+              aria-expanded={tocOpen}
+              onClick={() => setTocOpen((open) => !open)}
+            >
               {t('menu.toc')}
             </button>
           </div>
@@ -197,8 +194,8 @@ export function ReaderMenu({
             ✕
           </button>
         </header>
-        <div className="menu-body" ref={menuBody}>
-          <section className="menu-section" id="menu-toc">
+        <div className="menu-body">
+          {tocOpen && <section className="menu-section" id="menu-toc">
             <h2 className="card-label">{t('menu.toc')}</h2>
             {items.length === 0 ? (
               <p className="menu-empty">{t('menu.noToc')}</p>
@@ -225,7 +222,7 @@ export function ReaderMenu({
                 </ul>
               </>
             )}
-          </section>
+          </section>}
 
           <section className="menu-section">
             <h2 className="card-label">{t('menu.font')}</h2>
@@ -363,14 +360,6 @@ export function ReaderMenu({
                 {t('menu.flip')}
               </button>
             </div>
-            {settings.pageMode === 'flip' ? (
-              <p className="menu-page-hint">
-                <span>{t('menu.flipMobile')}</span>
-                <span>{t('menu.flipDesktop')}</span>
-              </p>
-            ) : (
-              <p className="menu-page-hint">{t('menu.scrollHint')}</p>
-            )}
           </section>
         </div>
       </aside>
