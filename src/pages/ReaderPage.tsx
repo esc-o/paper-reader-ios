@@ -39,6 +39,7 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
   const [lookupText, setLookupText] = useState<string | null>(null)
   const lookedUp = useLookups()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [showBack, setShowBack] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [settings, updateSettings] = useStoredSettings()
   const { t } = useTranslation()
@@ -49,6 +50,9 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
   const pageRef = useRef(page)
   const swipedRef = useRef(false)
   const menuOpenRef = useRef(menuOpen)
+  const lookupRef = useRef(lookupText)
+  const ignoreClickUntil = useRef(0)
+  const scrollTap = useRef<(x: number, y: number) => void>(() => {})
   const [reimportError, setReimportError] = useState<string | null>(null)
   const [reimporting, setReimporting] = useState(false)
   const lastTapAt = useRef(0)
@@ -58,7 +62,69 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
   useEffect(() => {
     pageRef.current = page
     menuOpenRef.current = menuOpen
-  }, [page, menuOpen])
+    lookupRef.current = lookupText
+  }, [page, menuOpen, lookupText])
+
+  useEffect(() => {
+    if (settings.pageMode !== 'scroll') setShowBack(false)
+  }, [settings.pageMode])
+
+  scrollTap.current = (x, y) => {
+    if (menuOpenRef.current || lookupRef.current) return
+    const now = Date.now()
+    const repeat =
+      now - lastTapAt.current < 320 && Math.hypot(x - lastTapX.current, y - lastTapY.current) < 40
+    if (repeat) {
+      window.clearTimeout(tapTimer.current)
+      lastTapAt.current = 0
+      if (selectWordAt(x, y)) {
+        window.requestAnimationFrame(() => setSelection(readSelection(contentRef.current)))
+      }
+      return
+    }
+    if (hasTextSelection()) {
+      lastTapAt.current = 0
+      return
+    }
+    lastTapAt.current = now
+    lastTapX.current = x
+    lastTapY.current = y
+    tapTimer.current = window.setTimeout(() => setShowBack((open) => !open), 280)
+  }
+
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el || settings.pageMode !== 'scroll') return
+    let startX = 0
+    let startY = 0
+    let moved = false
+    const onStart = (event: TouchEvent) => {
+      const touch = event.touches[0]
+      startX = touch.clientX
+      startY = touch.clientY
+      moved = false
+    }
+    const onMove = (event: TouchEvent) => {
+      const touch = event.touches[0]
+      if (Math.hypot(touch.clientX - startX, touch.clientY - startY) > 12) moved = true
+    }
+    const onEnd = (event: TouchEvent) => {
+      if (moved) return
+      const target = event.target
+      if (target instanceof Element && target.closest('a, button, input, textarea, .mark, .comment-bubble, .floating, .reading-fab, .pager')) return
+      ignoreClickUntil.current = Date.now() + 500
+      const touch = event.changedTouches[0]
+      scrollTap.current(touch.clientX, touch.clientY)
+    }
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: true })
+    el.addEventListener('touchend', onEnd)
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+    }
+  }, [settings.pageMode, book])
 
   useReadingTimer()
 
@@ -390,6 +456,11 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
     const target = event.target
     if (!(target instanceof Element)) return
     if (target.closest('a, button, input, textarea, .mark, .comment-bubble, .floating, .reading-fab, .pager')) return
+    if (settings.pageMode === 'scroll') {
+      if (Date.now() < ignoreClickUntil.current) return
+      scrollTap.current(event.clientX, event.clientY)
+      return
+    }
     if (hasTextSelection()) return
     if (narrow) {
       const now = Date.now()
@@ -474,7 +545,7 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
 
   return (
     <div
-      className={`reader theme-${settings.theme} mode-${settings.pageMode}${lookupText ? ' with-panel' : ''}`}
+      className={`reader theme-${settings.theme} mode-${settings.pageMode}${lookupText ? ' with-panel' : ''}${showBack ? ' show-back' : ''}`}
       style={{
         '--reader-font': `${settings.fontSize}px`,
         '--reader-leading': String(settings.lineHeight),

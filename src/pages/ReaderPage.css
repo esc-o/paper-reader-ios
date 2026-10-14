@@ -118,7 +118,29 @@
   color: #c92a2a;
 }
 
+.mode-scroll {
+  touch-action: manipulation;
+}
+
+.mode-scroll .site-chrome {
+  display: none;
+}
+
+.mode-scroll .reader-bar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 25;
+  padding-top: calc(12px + env(safe-area-inset-top));
+}
+
+.mode-scroll:not(.show-back) .reader-bar {
+  display: none;
+}
+
 .mode-scroll .reader-content {
+  padding-top: calc(20px + env(safe-area-inset-top));
   padding-bottom: 30vh;
 }
 

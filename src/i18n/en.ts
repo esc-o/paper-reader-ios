@@ -14,7 +14,7 @@ const en: Dictionary = {
     shelf: 'Shelf',
     notes: 'Notes',
     me: 'Me',
-    backHome: '← Home',
+    backHome: 'Back to home',
     backShelf: 'Back to shelf',
   },
   appearance: {
