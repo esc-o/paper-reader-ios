@@ -1,0 +1,209 @@
+:root {
+  --chocolate: #2b2220;
+  --ink: #2b2220;
+  --cream: #f7f4ee;
+  --muted: #7a706b;
+  --line: #e6e0d6;
+  --accent-ink: #5c4d48;
+
+  --hl-yellow: rgba(255, 212, 59, 0.5);
+  --hl-green: rgba(105, 219, 124, 0.42);
+  --hl-pink: rgba(247, 131, 172, 0.38);
+  --hl-blue: rgba(116, 192, 252, 0.42);
+
+  --ul-yellow: #e0a100;
+  --ul-green: #2f9e44;
+  --ul-pink: #d6336c;
+  --ul-blue: #1c7ed6;
+
+  --sw-yellow: #ffd43b;
+  --sw-green: #69db7c;
+  --sw-pink: #f783ac;
+  --sw-blue: #74c0fc;
+
+  /* Login control is a pill. Cards use half of its 32px height. */
+  --radius-button: 999px;
+  --radius-card: calc(32px / 2);
+
+  font-family: 'Chiron Yuan', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+}
+
+@font-face {
+  font-family: 'Chiron Yuan';
+  src: url('/fonts/ChironYuan-Medium.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+body {
+  margin: 0;
+}
+
+html.appearance-night {
+  color-scheme: dark;
+  background: #1f1f22;
+  color: #f4efe8;
+}
+
+html.appearance-night .home-cards,
+html.appearance-night .shelf {
+  background: #1f1f22;
+  color: #f4efe8;
+}
+
+html.appearance-night .card {
+  background: #221e1b;
+  color: #f4efe8;
+  box-shadow: none;
+}
+
+html.appearance-night .card-progress {
+  background: #243044;
+}
+
+html.appearance-night .card-number,
+html.appearance-night .card-sub,
+html.appearance-night .stat-number,
+html.appearance-night .shelf-title,
+html.appearance-night .book-title,
+html.appearance-night .book-link,
+html.appearance-night .note-link,
+html.appearance-night .note-text {
+  color: #f4efe8;
+}
+
+html.appearance-night .week-label.today {
+  color: #f4efe8;
+}
+
+html.appearance-night .card-unit,
+html.appearance-night .stat-label,
+html.appearance-night .week-label,
+html.appearance-night .book-meta,
+html.appearance-night .note-kind,
+html.appearance-night .note-quote,
+html.appearance-night .note-book,
+html.appearance-night .card-label,
+html.appearance-night .shelf-empty,
+html.appearance-night .dropzone-hint {
+  color: #b7aea8;
+}
+
+html.appearance-night .progress-track {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+html.appearance-night .progress-fill,
+html.appearance-night .week-bar,
+html.appearance-night .week-stroke,
+html.appearance-night .week-dot {
+  background: #f4efe8;
+  stroke: #f4efe8;
+  fill: #f4efe8;
+}
+
+html.appearance-night .week-stroke {
+  fill: none;
+}
+
+html.appearance-night .week-grid {
+  stroke: rgba(255, 255, 255, 0.14);
+}
+
+html.appearance-night .ring-track {
+  stroke: #3a322e;
+}
+
+html.appearance-night .ring-value {
+  stroke: #69db7c;
+}
+
+html.appearance-night .ring-copy strong {
+  color: #f4efe8;
+}
+
+html.appearance-night .card-ring {
+  background: transparent;
+}
+
+html.appearance-night .book-row,
+html.appearance-night .note-row {
+  border-color: #3a322e;
+}
+
+html.appearance-night .book-menu,
+html.appearance-night .account-menu {
+  background: #2a2421;
+  color: #f4efe8;
+  border-color: #3a322e;
+}
+
+html.appearance-night .book-menu button {
+  color: #f4efe8;
+}
+
+html.appearance-night .book-menu button:hover,
+html.appearance-night .account-menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html.appearance-night .book-menu button.danger {
+  color: #ff8a8a;
+}
+
+html.appearance-night .dropzone {
+  border-color: #5c534c;
+  color: #f4efe8;
+}
+
+html.appearance-night .folder-form input,
+html.appearance-night .shelf-search,
+html.appearance-night .shelf-sort select,
+html.appearance-night .folder-select,
+html.appearance-night .tag-form input,
+html.appearance-night .menu-field select,
+html.appearance-night .menu-field input {
+  background: #221e1b;
+  color: #f4efe8;
+  border-color: #3a322e;
+}
+
+html.appearance-night .folder-list > button.on,
+html.appearance-night .folder-row > button.on,
+html.appearance-night .tag-chip.on,
+html.appearance-night .menu-tags button.on {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4efe8;
+}
+
+html.appearance-night .tag-chip,
+html.appearance-night .tag-add,
+html.appearance-night .folder-add,
+html.appearance-night .menu-tags button {
+  color: #f4efe8;
+  border-color: #3a322e;
+}
+
+html.appearance-night .stat-dot.comment {
+  background: #f4efe8;
+}
+
+.card-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.home,
+.shelf {
+  padding-bottom: env(safe-area-inset-bottom);
+}
