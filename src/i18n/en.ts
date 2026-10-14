@@ -152,6 +152,7 @@ const en: Dictionary = {
     reimportButton: 'Choose file',
     emptyBook: 'There is no body text to lay out.',
     importFailed: 'Could not import that file. Try another one.',
+    returnHome: 'Back to home',
   },
   menu: {
     open: 'Open reading menu',
