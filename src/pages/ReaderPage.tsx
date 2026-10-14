@@ -5,7 +5,7 @@ import { SiteChrome } from '../components/SiteChrome'
 import { LIBRARY_EVENT } from '../lib/changes'
 import { deleteAnnotation, getBook, listAnnotations, saveAnnotation, saveBook, saveProgress } from '../lib/db'
 import { familyFor, useFonts } from '../lib/fonts'
-import { importPdf, prepareBook } from '../lib/library'
+import { READABLE_ACCEPT, importDocument, prepareBook } from '../lib/library'
 import { useLookups, type LookedUpWord } from '../lib/lookup'
 import { routes } from '../lib/router'
 import { useStoredSettings } from '../lib/settings'
@@ -15,8 +15,6 @@ import { useNarrow } from '../lib/useNarrow'
 import { useReadingTimer } from '../lib/useReadingTimer'
 import { AnnotatedParagraph } from '../reader/AnnotatedParagraph'
 import { CommentPopover, MarksPopover, NewCommentPopover } from '../reader/AnnotationPopovers'
-import { CurlBook } from '../reader/CurlBook'
-import type { CurlHandle } from '../reader/CurlBook'
 import { ExportDialog } from '../reader/ExportDialog'
 import { LookupPanel } from '../reader/LookupPanel'
 import { ReaderMenu, ReadingFab } from '../reader/ReaderMenu'
@@ -35,7 +33,6 @@ type Popover =
 export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string }) {
   const [book, setBook] = useState<Book | null | undefined>(undefined)
   const [page, setPage] = useState(1)
-  const [turn, setTurn] = useState<1 | -1 | 0>(0)
   const [annotations, setAnnotations] = useState<Annotation[]>([])
   const [selection, setSelection] = useState<PendingSelection | null>(null)
   const [popover, setPopover] = useState<Popover | null>(null)
@@ -48,10 +45,9 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
   const narrow = useNarrow()
   const { fonts } = useFonts()
   const fontFamily = familyFor(fonts, settings.fontId)
-  const curl = settings.pageMode === 'flip' && narrow
   const contentRef = useRef<HTMLDivElement>(null)
-  const curlRef = useRef<CurlHandle>(null)
   const pageRef = useRef(page)
+  const swipedRef = useRef(false)
   const menuOpenRef = useRef(menuOpen)
   const [reimportError, setReimportError] = useState<string | null>(null)
   const [reimporting, setReimporting] = useState(false)
@@ -106,45 +102,30 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
       if (found.currentPage !== pageRef.current && (found.updatedAt ?? 0) > 0) {
         pageRef.current = found.currentPage
         setPage(found.currentPage)
-        curlRef.current?.jumpToPdf(found.currentPage)
       }
     }
     window.addEventListener(LIBRARY_EVENT, refresh)
     return () => window.removeEventListener(LIBRARY_EVENT, refresh)
   }, [bookId])
 
-  const onCurlPage = useCallback((pdfPage: number) => {
-    if (!book || pdfPage === pageRef.current) return
-    pageRef.current = pdfPage
-    setPage(pdfPage)
-    saveProgress(book.id, pdfPage)
-  }, [book])
-
   const goToPage = useCallback(
     (target: number) => {
       if (!book) return
       const next = Math.min(Math.max(1, target), book.numPages)
-      if (curlRef.current) {
-        clearBrowserSelection()
-        setSelection(null)
-        setPopover(null)
-        curlRef.current.jumpToPdf(next)
-        return
-      }
-      if (next === page) return
+      if (next === pageRef.current) return
       clearBrowserSelection()
       setSelection(null)
       setPopover(null)
-      setTurn(next > page ? 1 : -1)
+      pageRef.current = next
       setPage(next)
       saveProgress(book.id, next)
       if (settings.pageMode === 'scroll') {
-        document.querySelector(`[data-page="${next}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        document.querySelector(`[data-page="${next}"]`)?.scrollIntoView({ block: 'start' })
       } else {
         window.scrollTo({ top: 0 })
       }
     },
-    [book, page, settings.pageMode],
+    [book, settings.pageMode],
   )
 
   useEffect(() => {
@@ -155,22 +136,17 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
         if (event.key === 'Escape') setMenuOpen(false)
         return
       }
-      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
-        if (curlRef.current) {
-          curlRef.current.flip(event.key === 'ArrowRight' ? 1 : -1)
-          return
-        }
-        if (event.key === 'ArrowRight') goToPage(page + 1)
-        if (event.key === 'ArrowLeft') goToPage(page - 1)
-      }
+      if (settings.pageMode !== 'flip') return
+      if (event.key === 'ArrowRight') goToPage(pageRef.current + 1)
+      if (event.key === 'ArrowLeft') goToPage(pageRef.current - 1)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [goToPage, menuOpen, page])
+  }, [goToPage, menuOpen, settings.pageMode])
 
   useEffect(() => {
     const el = contentRef.current
-    if (!el || settings.pageMode !== 'flip' || narrow) return
+    if (!el || settings.pageMode !== 'flip') return
     let startX = 0
     let startY = 0
     const onStart = (event: TouchEvent) => {
@@ -180,7 +156,11 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
     const onEnd = (event: TouchEvent) => {
       const dx = event.changedTouches[0].clientX - startX
       const dy = event.changedTouches[0].clientY - startY
-      if (menuOpenRef.current || Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.2) return
+      if (menuOpenRef.current || hasTextSelection() || Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return
+      swipedRef.current = true
+      window.setTimeout(() => {
+        swipedRef.current = false
+      }, 400)
       goToPage(pageRef.current + (dx < 0 ? 1 : -1))
     }
     el.addEventListener('touchstart', onStart, { passive: true })
@@ -189,38 +169,42 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
       el.removeEventListener('touchstart', onStart)
       el.removeEventListener('touchend', onEnd)
     }
-  }, [goToPage, narrow, settings.pageMode])
+  }, [goToPage, settings.pageMode])
 
+  const scrollBookId = book?.id
+  const scrollReady = !!book && !book.needsFile && book.paragraphs.length > 0
   useEffect(() => {
-    if (!book || settings.pageMode !== 'scroll') return
-    document.querySelector(`[data-page="${pageRef.current}"]`)?.scrollIntoView()
-    let ready = false
+    if (!scrollBookId || !scrollReady || settings.pageMode !== 'scroll') return
+    const start = pageRef.current
+    let follow = false
+    let settle = 0
     const arm = window.setTimeout(() => {
-      ready = true
-    }, 400)
-    const sections = contentRef.current?.querySelectorAll<HTMLElement>('[data-page]')
-    if (!sections) return () => window.clearTimeout(arm)
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!ready) return
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
-        if (!visible) return
-        const next = Number((visible.target as HTMLElement).dataset.page)
+      document.querySelector(`[data-page="${start}"]`)?.scrollIntoView({ block: 'start' })
+      settle = window.setTimeout(() => {
+        follow = true
+      }, 80)
+    }, 0)
+    let frame = 0
+    const onScroll = () => {
+      if (!follow) return
+      if (frame) return
+      frame = window.requestAnimationFrame(() => {
+        frame = 0
+        const next = pageUnderReadingLine(contentRef.current)
         if (!next || next === pageRef.current) return
         pageRef.current = next
         setPage(next)
-        saveProgress(book.id, next)
-      },
-      { rootMargin: '-12% 0px -70% 0px', threshold: 0 },
-    )
-    sections.forEach((section) => observer.observe(section))
+        saveProgress(scrollBookId, next)
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       window.clearTimeout(arm)
-      observer.disconnect()
+      window.clearTimeout(settle)
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', onScroll)
     }
-  }, [book, settings.pageMode])
+  }, [scrollBookId, scrollReady, settings.pageMode])
 
   useEffect(() => {
     let pointerIsDown = false
@@ -301,12 +285,6 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
     setPopover(null)
     setMenuOpen(false)
     dismissSelection()
-    if (window.matchMedia('(max-width: 899px)').matches) {
-      const visibleTop = target.anchor.top - window.scrollY
-      if (visibleTop > window.innerHeight * 0.4) {
-        requestAnimationFrame(() => window.scrollTo({ top: target.anchor.top - 96, behavior: 'smooth' }))
-      }
-    }
   }
 
   function toggleMenu() {
@@ -388,18 +366,11 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
     const tick = () => {
       if (stopped) return
       attempts += 1
-      const curling = settings.pageMode === 'flip' && narrow
-      if (curling) {
-        const placed = curlRef.current?.jumpToText(range.paragraphId, range.start) ?? false
-        if (!placed) {
-          if (attempts < 12) timer = window.setTimeout(tick, 180)
-          return
-        }
-      } else if (settings.pageMode !== 'scroll' && !moved) {
+      if (settings.pageMode !== 'scroll' && !moved) {
         moved = true
         goToPage(pdfPage)
       }
-      if (!curling && settings.pageMode !== 'scroll' && pageRef.current !== pdfPage) {
+      if (settings.pageMode !== 'scroll' && pageRef.current !== pdfPage) {
         if (attempts < 12) timer = window.setTimeout(tick, 180)
         return
       }
@@ -414,6 +385,7 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
   }, [annotations, book, goToPage, narrow, noteId, settings.pageMode])
 
   function onReaderClick(event: ReactMouseEvent) {
+    if (swipedRef.current) return
     if (lookupText || menuOpen) return
     const target = event.target
     if (!(target instanceof Element)) return
@@ -433,12 +405,12 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
       lastTapAt.current = now
       lastTapX.current = event.clientX
       lastTapY.current = event.clientY
+      if (settings.pageMode !== 'flip') return
       const ratio = event.clientX / window.innerWidth
       if (ratio >= 0.36 && ratio <= 0.64) return
       const delta = ratio < 0.36 ? -1 : 1
       tapTimer.current = window.setTimeout(() => {
-        if (curlRef.current) curlRef.current.flip(delta)
-        else goToPage(pageRef.current + delta)
+        goToPage(pageRef.current + delta)
       }, 280)
       return
     }
@@ -462,7 +434,7 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
     setReimporting(true)
     setReimportError(null)
     try {
-      const id = await importPdf(file)
+      const id = await importDocument(file)
       if (id !== bookId) {
         window.location.hash = routes.reader(id)
         return
@@ -502,7 +474,7 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
 
   return (
     <div
-      className={`reader theme-${settings.theme} mode-${settings.pageMode}${curl ? ' curl' : ''}${lookupText ? ' with-panel' : ''}`}
+      className={`reader theme-${settings.theme} mode-${settings.pageMode}${lookupText ? ' with-panel' : ''}`}
       style={{
         '--reader-font': `${settings.fontSize}px`,
         '--reader-leading': String(settings.lineHeight),
@@ -527,7 +499,7 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
               {reimporting ? t('errors.opening') : t('reader.reimportButton')}
               <input
                 type="file"
-                accept="application/pdf,.pdf"
+                accept={READABLE_ACCEPT}
                 hidden
                 onChange={(event) => {
                   const file = event.target.files?.[0]
@@ -538,28 +510,12 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
             </label>
             {reimportError && <p className="reimport-error">{reimportError}</p>}
           </div>
-        ) : curl ? (
-          <CurlBook
-            ref={curlRef}
-            paragraphs={book.paragraphs}
-            pdfPage={page}
-            margin={settings.margin}
-            fontSize={settings.fontSize}
-            lineHeight={settings.lineHeight}
-            fontFamily={fontFamily}
-            annotations={annotations}
-            lookups={lookedUp}
-            onMarksClick={openMarks}
-            onCommentClick={openComment}
-            onPdfPage={onCurlPage}
-          />
         ) : (
           pages.map((pageNumber) => (
             <PageSection
               key={pageNumber}
               book={book}
               pageNumber={pageNumber}
-              turn={turn}
               annotationsByParagraph={annotationsByParagraph}
               lookups={lookedUp}
               onMarksClick={openMarks}
@@ -569,7 +525,7 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
         )}
       </div>
 
-      {settings.pageMode === 'flip' && !curl && !book.needsFile && (
+      {settings.pageMode === 'flip' && !book.needsFile && (
         <nav className="pager">
           <button type="button" className="pager-button" disabled={page <= 1} onClick={() => goToPage(page - 1)}>
             {t('reader.prev')}
@@ -664,7 +620,6 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
 function PageSection({
   book,
   pageNumber,
-  turn,
   annotationsByParagraph,
   lookups,
   onMarksClick,
@@ -672,7 +627,6 @@ function PageSection({
 }: {
   book: Book
   pageNumber: number
-  turn: 1 | -1 | 0
   annotationsByParagraph: Map<number, Annotation[]>
   lookups: LookedUpWord[]
   onMarksClick: (ids: string[], anchor: Anchor) => void
@@ -684,7 +638,7 @@ function PageSection({
   const bookPage = displayPage(pageNumber, book.pageOffset ?? 0)
 
   return (
-    <section className="reader-page" data-page={pageNumber} data-turn={turn}>
+    <section className="reader-page" data-page={pageNumber}>
       <div className="page-sep">— {bookPage} —</div>
       {visible.length === 0 && (
         <p className="reader-message">
@@ -706,6 +660,26 @@ function PageSection({
 }
 
 const NO_ANNOTATIONS: Annotation[] = []
+
+/** Page whose body contains a line about a third of the way down the screen. */
+function pageUnderReadingLine(root: HTMLElement | null): number | null {
+  if (!root) return null
+  const line = window.innerHeight * 0.32
+  const sections = root.querySelectorAll<HTMLElement>('[data-page]')
+  let above: number | null = null
+  for (const section of sections) {
+    const rect = section.getBoundingClientRect()
+    const pageNumber = Number(section.dataset.page)
+    if (!pageNumber) continue
+    if (rect.bottom <= line) {
+      above = pageNumber
+      continue
+    }
+    if (rect.top <= line) return pageNumber
+    break
+  }
+  return above
+}
 
 function flashNote(root: HTMLElement | null, id: string): boolean {
   if (!root || typeof CSS === 'undefined' || !CSS.escape) return false
