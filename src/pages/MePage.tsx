@@ -3,38 +3,53 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppearance } from '../lib/appearance'
 import { displayName, useAuth } from '../lib/auth'
+import { submitFeedback, type FeedbackKind } from '../lib/feedback'
 import { formatRgb, parseRgb, useTone } from '../lib/tone'
 import './MePage.css'
-
-const FEEDBACK_TO = 'findme@xxko.ink'
 
 export function MePage() {
   const { t, i18n } = useTranslation()
   const { user, error, signIn, signOut, clearError } = useAuth()
-  const { mode, setAppearance } = useAppearance()
+  const { preference, setAppearance } = useAppearance()
   const { tone, saveTone } = useTone()
-  const [ticketTitle, setTicketTitle] = useState('')
+  const [ticketKind, setTicketKind] = useState<FeedbackKind>('bug')
   const [ticketBody, setTicketBody] = useState('')
+  const [ticketEmail, setTicketEmail] = useState('')
+  const [emailEdited, setEmailEdited] = useState(false)
   const [ticketError, setTicketError] = useState('')
+  const [ticketSuccess, setTicketSuccess] = useState(false)
+  const [ticketSending, setTicketSending] = useState(false)
   const [toneText, setToneText] = useState(tone ? formatRgb(tone) : '')
   const [toneError, setToneError] = useState('')
   const lang = i18n.language.startsWith('zh') ? 'zh' : 'en'
   const name = user ? displayName(user) || t('auth.friend') : ''
+  const emailValue = emailEdited ? ticketEmail : ticketEmail || user?.email || ''
 
-  function sendTicket(event: FormEvent) {
+  async function sendTicket(event: FormEvent) {
     event.preventDefault()
-    const title = ticketTitle.trim()
     const body = ticketBody.trim()
-    if (!title || !body) {
+    if (!body) {
       setTicketError(t('me.ticketNeed'))
+      setTicketSuccess(false)
       return
     }
     setTicketError('')
-    const subject = encodeURIComponent(`[Paper Reader] ${title}`)
-    const mail = encodeURIComponent(`${body}\n\n— Paper Reader`)
-    const link = document.createElement('a')
-    link.href = `mailto:${FEEDBACK_TO}?subject=${subject}&body=${mail}`
-    link.click()
+    setTicketSuccess(false)
+    setTicketSending(true)
+    try {
+      await submitFeedback({
+        kind: ticketKind,
+        message: body,
+        email: emailValue.trim() || undefined,
+        loggedIn: Boolean(user),
+      })
+      setTicketBody('')
+      setTicketSuccess(true)
+    } catch {
+      setTicketError(t('me.ticketRetry'))
+    } finally {
+      setTicketSending(false)
+    }
   }
 
   function applyTone(event: FormEvent) {
@@ -84,11 +99,14 @@ export function MePage() {
       <section className="me-card">
         <h2>{t('me.theme')}</h2>
         <div className="me-choice" role="group" aria-label={t('appearance.label')}>
-          <button type="button" className={mode === 'day' ? 'on' : undefined} onClick={() => setAppearance('day')}>
+          <button type="button" className={preference === 'day' ? 'on' : undefined} onClick={() => setAppearance('day')}>
             {t('appearance.day')}
           </button>
-          <button type="button" className={mode === 'night' ? 'on' : undefined} onClick={() => setAppearance('night')}>
+          <button type="button" className={preference === 'night' ? 'on' : undefined} onClick={() => setAppearance('night')}>
             {t('appearance.night')}
+          </button>
+          <button type="button" className={preference === 'system' ? 'on' : undefined} onClick={() => setAppearance('system')}>
+            {t('appearance.system')}
           </button>
         </div>
       </section>
@@ -108,19 +126,61 @@ export function MePage() {
 
       <section className="me-card">
         <h2>{t('me.feedback')}</h2>
-        <p className="me-copy">{t('me.feedbackLead')}</p>
-        <form className="me-form" onSubmit={sendTicket}>
-          <label>
-            {t('me.ticketTitle')}
-            <input value={ticketTitle} onChange={(event) => setTicketTitle(event.target.value)} />
-          </label>
-          <label>
-            {t('me.ticketBody')}
-            <textarea rows={5} value={ticketBody} onChange={(event) => setTicketBody(event.target.value)} />
-          </label>
-          {ticketError && <p className="me-error">{ticketError}</p>}
-          <button type="submit" className="me-button solid">{t('me.send')}</button>
-        </form>
+        {ticketSuccess ? (
+          <div className="me-success-card">
+            <p className="me-success">{t('me.ticketThanks')}</p>
+            <button type="button" className="me-button solid" onClick={() => setTicketSuccess(false)}>
+              {t('me.ticketClose')}
+            </button>
+          </div>
+        ) : (
+          <>
+            <p className="me-copy">{t('me.feedbackLead')}</p>
+            <form className="me-form" onSubmit={(event) => void sendTicket(event)}>
+              <label>
+                {t('me.ticketKind')}
+                <select
+                  value={ticketKind}
+                  disabled={ticketSending}
+                  onChange={(event) => setTicketKind(event.target.value as FeedbackKind)}
+                >
+                  <option value="bug">{t('me.ticketKindBug')}</option>
+                  <option value="suggestion">{t('me.ticketKindSuggestion')}</option>
+                  <option value="other">{t('me.ticketKindOther')}</option>
+                </select>
+              </label>
+              <label>
+                {t('me.ticketBody')}
+                <textarea
+                  rows={6}
+                  value={ticketBody}
+                  disabled={ticketSending}
+                  required
+                  onChange={(event) => setTicketBody(event.target.value)}
+                />
+              </label>
+              <label>
+                {t('me.ticketEmail')}
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={emailValue}
+                  disabled={ticketSending}
+                  placeholder={t('me.ticketEmailHint')}
+                  onChange={(event) => {
+                    setEmailEdited(true)
+                    setTicketEmail(event.target.value)
+                  }}
+                />
+              </label>
+              {ticketError && <p className="me-error">{ticketError}</p>}
+              <button type="submit" className="me-button solid" disabled={ticketSending}>
+                {ticketSending ? t('me.ticketSending') : t('me.send')}
+              </button>
+            </form>
+          </>
+        )}
       </section>
 
       <section className="me-card">

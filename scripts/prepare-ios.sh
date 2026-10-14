@@ -28,8 +28,16 @@ fi
 cp "$splash" ios/App/App/Assets.xcassets/Splash.imageset/splash-2732x2732-1.png
 cp "$splash" ios/App/App/Assets.xcassets/Splash.imageset/splash-2732x2732-2.png
 
+secrets="ios/App/App/Secrets.swift"
+example="ios/App/App/Secrets.example.swift"
+if [[ ! -f "$secrets" ]]; then
+  echo "Creating $secrets from Secrets.example.swift (fill in web3formsKey)"
+  cp "$example" "$secrets"
+fi
+
 echo "Installing dependencies and syncing the iOS web bundle"
 npm install
 npm run ios:sync
 
 echo "Ready: open ios/App/App.xcodeproj"
+echo "If needed, put your Web3Forms key in ios/App/App/Secrets.swift"
