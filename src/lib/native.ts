@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
-import { importPdf } from './library'
+import { documentKind, importDocument } from './library'
 import { routes } from './router'
 
 type ImportDetail = { name?: string; base64?: string }
@@ -17,7 +17,7 @@ export function startNativeShell() {
     const key = `${detail.name ?? ''}:${detail.base64.length}:${detail.base64.slice(0, 48)}`
     if (key === lastImportKey) return
     lastImportKey = key
-    void openImportedPdf(detail.name || 'paper.pdf', detail.base64)
+    void openImportedFile(detail.name || 'paper.pdf', detail.base64)
   })
 }
 
@@ -36,12 +36,15 @@ declare global {
   }
 }
 
-async function openImportedPdf(name: string, base64: string) {
+async function openImportedFile(name: string, base64: string) {
   const binary = atob(base64)
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  const fileName = name.toLowerCase().endsWith('.pdf') ? name : `${name}.pdf`
-  const file = new File([bytes], fileName, { type: 'application/pdf' })
-  const id = await importPdf(file)
+  const fileName = name.trim() || 'paper.pdf'
+  const kind = documentKind(fileName)
+  const type =
+    kind === 'pdf' ? 'application/pdf' : kind === 'txt' ? 'text/plain' : kind === 'mobi' ? 'application/x-mobipocket-ebook' : ''
+  const file = new File([bytes], fileName, { type })
+  const id = await importDocument(file)
   window.location.hash = routes.reader(id)
 }
