@@ -40,7 +40,7 @@ const FREE_DICTIONARY_TIMEOUT_MS = 3000
 const FALLBACK_TIMEOUT_MS = 8000
 
 function stripPunctuation(text: string): string {
-  return text.trim().replace(/[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
+  return text.trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
 }
 
 /** Lower case, with punctuation taken off both ends. */
