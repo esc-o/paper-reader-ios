@@ -115,10 +115,10 @@ function findDescription(paragraphs: Paragraph[]): string {
   const body = paragraphs.filter((p) => !p.isToc)
   const index = body.findIndex((p) => /^abstract$/i.test(p.text))
   let text = index >= 0 ? body[index + 1]?.text : undefined
-  text ??= body.map((p) => p.text.match(/^abstract[\s.:\u2014\u2013-]+(.{40,})/i)?.[1]).find(Boolean)
+  text ??= body.map((p) => p.text.match(/^abstract[\s.:—–-]+(.{40,})/i)?.[1]).find(Boolean)
   text ??= body.find((p) => !p.isHeading && p.text.length > 200)?.text
   if (!text) return ''
-  return text.length > 300 ? text.slice(0, 300).replace(/\s+\S*$/, '') + '\u2026' : text
+  return text.length > 300 ? text.slice(0, 300).replace(/\s+\S*$/, '') + '…' : text
 }
 
 async function sha256(buffer: ArrayBuffer): Promise<string> {
