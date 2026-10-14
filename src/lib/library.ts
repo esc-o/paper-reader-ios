@@ -2,6 +2,8 @@ import { useState } from 'react'
 import i18n from '../i18n'
 import { extractPdf, ExtractionError, TEXT_VERSION } from '../pdf/extractParagraphs'
 import type { Paragraph } from '../pdf/extractParagraphs'
+import { paragraphsFromMobi, parseMobi } from '../text/mobi'
+import { paragraphsFromPlain, plainBlocks, decodePlain } from '../text/plain'
 import { authorsForDoi, doiInText, usableAuthor } from './authors'
 import { notifyLibrary } from './changes'
 import { getBook, saveBook } from './db'
@@ -11,6 +13,25 @@ import type { Book } from './types'
 
 export function isPdfFile(file: File): boolean {
   return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+}
+
+export const READABLE_ACCEPT =
+  'application/pdf,.pdf,text/plain,.txt,.mobi,.azw,.prc,application/x-mobipocket-ebook,application/vnd.amazon.ebook'
+
+export function documentKind(name: string, type = ''): 'pdf' | 'txt' | 'mobi' | null {
+  const lower = name.toLowerCase()
+  if (type === 'application/pdf' || lower.endsWith('.pdf')) return 'pdf'
+  if (type.startsWith('text/plain') || lower.endsWith('.txt')) return 'txt'
+  if (
+    lower.endsWith('.mobi') ||
+    lower.endsWith('.azw') ||
+    lower.endsWith('.prc') ||
+    type === 'application/x-mobipocket-ebook' ||
+    type === 'application/vnd.amazon.ebook'
+  ) {
+    return 'mobi'
+  }
+  return null
 }
 
 /** Returns the id of the (possibly already existing) book for this file. */
@@ -62,6 +83,86 @@ export async function importPdf(
   })
   notifyLibrary()
   return id
+}
+
+/** Imports a PDF, TXT, or MOBI and returns the book id. */
+export async function importDocument(
+  file: File,
+  onProgress?: (page: number, total: number) => void,
+): Promise<string> {
+  const kind = documentKind(file.name, file.type)
+  if (kind === 'pdf') return importPdf(file, onProgress)
+  if (kind === 'txt' || kind === 'mobi') return importTextFile(file, kind, onProgress)
+  throw new ExtractionError(i18n.t('errors.notPdf'))
+}
+
+async function importTextFile(
+  file: File,
+  kind: 'txt' | 'mobi',
+  onProgress?: (page: number, total: number) => void,
+): Promise<string> {
+  onProgress?.(0, 1)
+  const buffer = await file.arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+  const id = await sha256(buffer.slice(0))
+  const existing = await getBook(id)
+  if (existing && !existing.needsFile && existing.paragraphs.length > 0) return id
+
+  const parsed = kind === 'txt' ? textFromPlain(bytes, file.name) : textFromMobi(bytes, file.name)
+  const finalized = finalizeParagraphs(parsed.paragraphs, parsed.numPages)
+  const now = Date.now()
+  await saveBook({
+    id,
+    fileName: file.name,
+    title: existing?.title || parsed.title,
+    author: existing?.author || parsed.author,
+    description: existing?.description || findDescription(finalized.paragraphs),
+    numPages: parsed.numPages,
+    paragraphs: finalized.paragraphs,
+    toc: finalized.toc,
+    pageOffset: finalized.pageOffset,
+    textVersion: TEXT_VERSION,
+    addedAt: existing?.addedAt ?? now,
+    lastReadAt: existing?.lastReadAt ?? null,
+    currentPage: existing && existing.currentPage <= parsed.numPages ? existing.currentPage : 1,
+    needsFile: false,
+    updatedAt: existing?.updatedAt ?? now,
+    folderId: existing?.folderId ?? null,
+    tagIds: existing?.tagIds ?? [],
+    year: existing?.year ?? yearInTitle(parsed.title),
+    classifyUpdatedAt: existing?.classifyUpdatedAt,
+  })
+  notifyLibrary()
+  onProgress?.(1, 1)
+  return id
+}
+
+function textFromPlain(bytes: Uint8Array, fileName: string) {
+  const paragraphs = paragraphsFromPlain(bytes)
+  if (paragraphs.length === 0) throw new ExtractionError(i18n.t('errors.emptyFile'))
+  const heading = plainBlocks(decodePlain(bytes)).find((block) => block.isHeading)?.text
+  return {
+    title: heading || fileName.replace(/\.txt$/i, ''),
+    author: '',
+    paragraphs,
+    numPages: paragraphs[paragraphs.length - 1]?.endPage ?? 1,
+  }
+}
+
+function textFromMobi(bytes: Uint8Array, fileName: string) {
+  const parsed = parseMobi(bytes)
+  if (parsed === 'encrypted') throw new ExtractionError(i18n.t('errors.encrypted'))
+  if (parsed === 'unsupported' || parsed === 'invalid') throw new ExtractionError(i18n.t('errors.unsupported'))
+  if (parsed === 'empty') throw new ExtractionError(i18n.t('errors.emptyFile'))
+  const paragraphs = paragraphsFromMobi(parsed)
+  if (paragraphs.length === 0) throw new ExtractionError(i18n.t('errors.emptyFile'))
+  const heading = parsed.blocks.find((block) => block.isHeading)?.text
+  return {
+    title: parsed.title || heading || fileName.replace(/\.(mobi|azw|prc)$/i, ''),
+    author: parsed.author,
+    paragraphs,
+    numPages: paragraphs[paragraphs.length - 1]?.endPage ?? 1,
+  }
 }
 
 export function progressPercent(book: Book): number {
@@ -138,7 +239,7 @@ export function useImportPdf() {
   async function importFile(file: File) {
     setState({ kind: 'loading', page: 0, total: 0 })
     try {
-      await importPdf(file, (page, total) => setState({ kind: 'loading', page, total }))
+      await importDocument(file, (page, total) => setState({ kind: 'loading', page, total }))
       setState({ kind: 'idle' })
     } catch (error) {
       console.error(error)

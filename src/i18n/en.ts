@@ -64,9 +64,9 @@ const en: Dictionary = {
     nothing: 'Nothing in progress',
     startTitle: 'Start with one paper.',
     startDescription:
-      'Drop in a PDF to organise it by paragraph. Highlight, underline and comment as you read, and select any word to look it up or translate it.',
+      'Drop in a PDF, TXT, or MOBI to organise it by paragraph. Highlight, underline and comment as you read, and select any word to look it up or translate it.',
     continue: 'Continue reading',
-    import: 'Import PDF',
+    import: 'Import',
     shelf: 'Shelf →',
     lastRead: 'Last read · {{time}}',
     localOnly: 'Data is stored on this device only. Sign in to sync progress and notes. PDF files stay local.',
@@ -82,7 +82,7 @@ const en: Dictionary = {
     comment: 'Comments',
   },
   fileMissing: {
-    lead: "This PDF isn't on this device yet. Re-import it to restore your progress and annotations.",
+    lead: "This file isn't on this device yet. Re-import it to restore your progress and annotations.",
     note: 'Progress and notes sync to your account. The PDF stays on this device.',
   },
   week: {
@@ -104,7 +104,7 @@ const en: Dictionary = {
   shelf: {
     kicker: 'Library',
     title: 'Shelf',
-    empty: 'The shelf is empty. Import a PDF to begin.',
+    empty: 'The shelf is empty. Import a PDF, TXT, or MOBI to begin.',
     pages: '{{count}} pages',
     lastRead: 'Last read {{time}}',
     notStarted: 'Not started',
@@ -138,7 +138,7 @@ const en: Dictionary = {
     folders: 'Folders',
   },
   drop: {
-    title: 'Drag in a PDF, or click to browse',
+    title: 'Drag in a PDF, TXT, or MOBI, or click to browse',
     hint: 'Your file stays in your browser and never leaves this device',
   },
   reader: {
@@ -149,9 +149,9 @@ const en: Dictionary = {
     pager: 'Page {{page}} / {{total}}',
     tocHidden: 'This page is the table of contents, so it is hidden. Open the menu to see it.',
     noText: 'No text on this page (it may be a figure).',
-    reimportButton: 'Choose PDF',
+    reimportButton: 'Choose file',
     emptyBook: 'There is no body text to lay out.',
-    importFailed: 'Could not import that PDF. Try another file.',
+    importFailed: 'Could not import that file. Try another one.',
   },
   menu: {
     open: 'Open reading menu',
@@ -177,9 +177,6 @@ const en: Dictionary = {
     pageMode: 'Paging',
     scroll: 'Scroll',
     flip: 'Flip',
-    flipMobile: 'Mobile: swipe left for the next page, right for the previous one. The sides of the page work too.',
-    flipDesktop: 'Desktop: swipe or use the arrow keys.',
-    scrollHint: 'Read straight down. The page you reach is remembered.',
     font: 'Font',
     fontDefault: 'Chiron Yuan',
     fontUpload: 'Upload font',
@@ -249,14 +246,17 @@ const en: Dictionary = {
     translateFailed: 'Translation failed. Please try again.',
   },
   errors: {
-    notPdf: 'Please choose a PDF file.',
+    notPdf: 'Please choose a PDF, TXT, or MOBI file.',
     password: 'This PDF is password-protected and is not supported yet.',
     invalid: 'This file could not be opened. It may not be a valid PDF.',
     noText: 'No extractable text. It may be a scanned PDF.',
-    readFailed: 'Something went wrong while reading the PDF. Try another file.',
+    readFailed: 'Something went wrong while reading that file. Try another one.',
     readingPage: 'Reading page {{page}} / {{total}}…',
-    opening: 'Opening PDF…',
-    importing: 'Importing PDF…',
+    opening: 'Opening…',
+    importing: 'Importing…',
+    encrypted: 'This ebook is encrypted and cannot be opened.',
+    unsupported: 'This ebook format is not supported yet.',
+    emptyFile: 'This file has no text to read.',
   },
   time: {
     today: 'Today {{time}}',
