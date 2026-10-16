@@ -93,7 +93,8 @@
 }
 
 .me-form input,
-.me-form textarea {
+.me-form textarea,
+.me-form select {
   width: 100%;
   box-sizing: border-box;
   padding: 10px 12px;
@@ -104,6 +105,45 @@
   font: inherit;
   font-size: 16px;
   font-weight: 500;
+}
+
+.me-form select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 55%,
+    calc(100% - 12px) 55%;
+  background-size:
+    6px 6px,
+    6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
+
+.me-form textarea {
+  min-height: 140px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.me-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.me-success-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.me-success {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .tone-swatch {
@@ -136,7 +176,8 @@ html.appearance-night .me-form label {
 }
 
 html.appearance-night .me-form input,
-html.appearance-night .me-form textarea {
+html.appearance-night .me-form textarea,
+html.appearance-night .me-form select {
   border-color: rgba(255, 255, 255, 0.12);
   background: #1b1917;
   color: #f4efe8;

@@ -3,14 +3,30 @@ import { syncStatusBar } from './native'
 import { followAppearance } from './settings'
 
 const KEY = 'paper-reader.appearance'
+export type AppearancePreference = 'day' | 'night' | 'system'
 export type Appearance = 'day' | 'night'
 
-export function readAppearance(): Appearance {
+function systemIsNight(): boolean {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
+export function readAppearancePreference(): AppearancePreference {
   try {
-    return localStorage.getItem(KEY) === 'night' ? 'night' : 'day'
+    const value = localStorage.getItem(KEY)
+    if (value === 'night' || value === 'day' || value === 'system') return value
+    return 'system'
   } catch {
-    return 'day'
+    return 'system'
   }
+}
+
+export function resolveAppearance(preference: AppearancePreference, systemNight = systemIsNight()): Appearance {
+  if (preference === 'system') return systemNight ? 'night' : 'day'
+  return preference
+}
+
+export function readAppearance(): Appearance {
+  return resolveAppearance(readAppearancePreference())
 }
 
 export function applyAppearance(mode: Appearance) {
@@ -22,21 +38,34 @@ applyAppearance(readAppearance())
 followAppearance(readAppearance(), false)
 
 export function useAppearance() {
-  const [mode, setMode] = useState<Appearance>(readAppearance)
+  const [preference, setPreference] = useState<AppearancePreference>(readAppearancePreference)
+  const [systemNight, setSystemNight] = useState(systemIsNight)
+  const mode = resolveAppearance(preference, systemNight)
 
   useEffect(() => {
-    applyAppearance(mode)
-  }, [mode])
+    if (preference !== 'system') return
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = () => {
+      setSystemNight(media.matches)
+      const resolved: Appearance = media.matches ? 'night' : 'day'
+      applyAppearance(resolved)
+      followAppearance(resolved, true)
+    }
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [preference])
 
-  function setAppearance(next: Appearance) {
+  function setAppearance(next: AppearancePreference) {
     try {
       localStorage.setItem(KEY, next)
     } catch {
       /* private mode */
     }
-    setMode(next)
-    followAppearance(next, true)
+    setPreference(next)
+    const resolved = resolveAppearance(next, systemNight)
+    applyAppearance(resolved)
+    followAppearance(resolved, true)
   }
 
-  return { mode, setAppearance }
+  return { mode, preference, setAppearance }
 }
