@@ -2,6 +2,10 @@
 
 基于 [paper-reader](https://github.com/esc-o/paper-reader) 的 iOS 工程。
 
+## Demo
+
+自签安装，装着玩：[PaperReader.ipa](https://github.com/esc-o/paper-reader-ios/releases/download/demo-0.4.3/PaperReader.ipa)（[Release](https://github.com/esc-o/paper-reader-ios/releases/tag/demo-0.4.3)）。只能装到这张签名里登记过的设备上，不是 App Store 版本。
+
 ## 本地准备
 
 ```bash
