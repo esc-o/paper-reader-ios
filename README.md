@@ -2,20 +2,7 @@
 
 基于 [paper-reader](https://github.com/esc-o/paper-reader) 的 iOS 工程。
 
-## Demo
-
 自签安装，装着玩：[PaperReader.ipa](https://github.com/esc-o/paper-reader-ios/releases/download/demo-0.4.3/PaperReader.ipa)（[Release](https://github.com/esc-o/paper-reader-ios/releases/tag/demo-0.4.3)）。只能装到这张签名里登记过的设备上，不是 App Store 版本。
-
-## 本地准备
-
-```bash
-bash scripts/prepare-ios.sh
-```
-
-反馈提交使用 [Web3Forms](https://web3forms.com/)。把 access key 填进本地文件（已 gitignore，不会进仓库）：
-
-1. 若还没有，会从 `ios/App/App/Secrets.example.swift` 复制出 `ios/App/App/Secrets.swift`
-2. 把 `static let web3formsKey = "在这里填"` 换成你的 key
 
 ## 开源引用
 
