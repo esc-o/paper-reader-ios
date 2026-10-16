@@ -71,28 +71,32 @@ export function readSelection(container: HTMLElement | null): PendingSelection |
 
 /** Selects the word under a double-tap. Latin runs stay together; one CJK character is a word. */
 export function selectWordAt(x: number, y: number): boolean {
-  const hit = caretAt(x, y)
-  if (!hit || hit.node.nodeType !== Node.TEXT_NODE) return false
-  const text = hit.node.textContent ?? ''
-  if (!text) return false
-  let index = Math.min(hit.offset, text.length - 1)
-  if (index > 0 && (index >= text.length || /\s/.test(text[index]))) index -= 1
-  if (index < 0 || /\s/.test(text[index])) return false
-  const wordChar = (char: string) => /[\p{Script=Latin}\p{N}'’\-]/u.test(char)
-  let start = index
-  let end = index + 1
-  if (wordChar(text[index])) {
-    while (start > 0 && wordChar(text[start - 1])) start -= 1
-    while (end < text.length && wordChar(text[end])) end += 1
+  try {
+    const hit = caretAt(x, y)
+    if (!hit || hit.node.nodeType !== Node.TEXT_NODE) return false
+    const text = hit.node.textContent ?? ''
+    if (!text) return false
+    let index = Math.min(hit.offset, text.length - 1)
+    if (index > 0 && (index >= text.length || /\s/.test(text[index]!))) index -= 1
+    if (index < 0 || /\s/.test(text[index]!)) return false
+    const wordChar = (char: string) => /[\p{Script=Latin}\p{N}'’\-]/u.test(char)
+    let start = index
+    let end = index + 1
+    if (wordChar(text[index]!)) {
+      while (start > 0 && wordChar(text[start - 1]!)) start -= 1
+      while (end < text.length && wordChar(text[end]!)) end += 1
+    }
+    const range = document.createRange()
+    range.setStart(hit.node, start)
+    range.setEnd(hit.node, end)
+    const selection = window.getSelection()
+    if (!selection) return false
+    selection.removeAllRanges()
+    selection.addRange(range)
+    return true
+  } catch {
+    return false
   }
-  const range = document.createRange()
-  range.setStart(hit.node, start)
-  range.setEnd(hit.node, end)
-  const selection = window.getSelection()
-  if (!selection) return false
-  selection.removeAllRanges()
-  selection.addRange(range)
-  return true
 }
 
 function caretAt(x: number, y: number): { node: Node; offset: number } | null {
@@ -100,11 +104,32 @@ function caretAt(x: number, y: number): { node: Node; offset: number } | null {
     caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
     caretRangeFromPoint?: (x: number, y: number) => Range | null
   }
-  const position = doc.caretPositionFromPoint?.(x, y)
-  if (position) return { node: position.offsetNode, offset: position.offset }
+  // Prefer caretRangeFromPoint on WebKit: it is what iOS WKWebView actually implements.
   const range = doc.caretRangeFromPoint?.(x, y)
-  if (!range) return null
-  return { node: range.startContainer, offset: range.startOffset }
+  const fromRange = range ? textCaret(range.startContainer, range.startOffset) : null
+  if (fromRange) return fromRange
+  const position = doc.caretPositionFromPoint?.(x, y)
+  if (!position) return null
+  return textCaret(position.offsetNode, position.offset)
+}
+
+/** iOS often returns the element and a child index, not the text node under the finger. */
+function textCaret(node: Node, offset: number): { node: Node; offset: number } | null {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const length = node.textContent?.length ?? 0
+    return { node, offset: Math.max(0, Math.min(offset, length)) }
+  }
+  if (!(node instanceof Element)) return null
+  const child = node.childNodes[offset] ?? node.childNodes[Math.max(0, offset - 1)]
+  if (child?.nodeType === Node.TEXT_NODE) {
+    const length = child.textContent?.length ?? 0
+    return { node: child, offset: node.childNodes[offset] === child ? 0 : length }
+  }
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT)
+  const first = walker.nextNode()
+  if (!first) return null
+  const length = first.textContent?.length ?? 0
+  return { node: first, offset: Math.max(0, Math.min(offset, length)) }
 }
 
 function offsetWithin(element: HTMLElement, node: Node, offset: number): number {

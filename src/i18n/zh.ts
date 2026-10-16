@@ -159,6 +159,7 @@ const zh = {
     reimportButton: '选择文件',
     emptyBook: '没有可排版的正文。',
     importFailed: '导入失败，请换一个文件试试。',
+    returnHome: '返回首页',
   },
   menu: {
     open: '打开阅读菜单',

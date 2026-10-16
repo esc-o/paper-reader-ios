@@ -39,6 +39,7 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
   const [lookupText, setLookupText] = useState<string | null>(null)
   const lookedUp = useLookups()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [showHome, setShowHome] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [settings, updateSettings] = useStoredSettings()
   const { t } = useTranslation()
@@ -61,6 +62,13 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
   }, [page, menuOpen])
 
   useReadingTimer()
+
+  useEffect(() => {
+    if (!showHome) return
+    const hide = () => setShowHome(false)
+    window.addEventListener('scroll', hide, { passive: true })
+    return () => window.removeEventListener('scroll', hide)
+  }, [showHome])
 
   useEffect(() => {
     let cancelled = false
@@ -389,8 +397,31 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
     if (lookupText || menuOpen) return
     const target = event.target
     if (!(target instanceof Element)) return
-    if (target.closest('a, button, input, textarea, .mark, .comment-bubble, .floating, .reading-fab, .pager')) return
+    if (target.closest('a, button, input, textarea, .mark, .comment-bubble, .floating, .reading-fab, .pager, .reader-bar, .site-chrome, .scroll-home')) return
+    if (settings.pageMode === 'scroll') {
+      const now = Date.now()
+      const close =
+        now - lastTapAt.current < 300 &&
+        Math.hypot(event.clientX - lastTapX.current, event.clientY - lastTapY.current) < 36
+      if (close) {
+        window.clearTimeout(tapTimer.current)
+        lastTapAt.current = 0
+        setShowHome(false)
+        if (selectWordAt(event.clientX, event.clientY)) {
+          const pending = readSelection(contentRef.current)
+          if (pending) openLookup(pending)
+        }
+        return
+      }
+    }
     if (hasTextSelection()) return
+    if (settings.pageMode === 'scroll') {
+      lastTapAt.current = Date.now()
+      lastTapX.current = event.clientX
+      lastTapY.current = event.clientY
+      tapTimer.current = window.setTimeout(() => setShowHome(true), 280)
+      return
+    }
     if (narrow) {
       const now = Date.now()
       const close =
@@ -484,6 +515,9 @@ export function ReaderPage({ bookId, noteId }: { bookId: string; noteId?: string
       onClick={onReaderClick}
     >
       <SiteChrome />
+      {settings.pageMode === 'scroll' && showHome && (
+        <a className="scroll-home" href={routes.home}>{t('reader.returnHome')}</a>
+      )}
       <header className="reader-bar">
         <a className="reader-back" href={routes.home}>{t('nav.backHome')}</a>
         <span className="reader-title" title={book.title}>{book.title}</span>
